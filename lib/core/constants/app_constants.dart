@@ -3,7 +3,7 @@ class AppConstants {
 
   static const String appName = 'Field Service';
 
-  // TODO: swap to real backend once staging URL is available
+  // TODO: replace with real backend API URL once staging URL is available
   static const String baseUrl = 'https://mock-api.fieldservice.dev/api/v1';
 
   static const int connectTimeoutMs = 15000;
