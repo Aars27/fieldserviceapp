@@ -8,7 +8,6 @@ import '../models/auth_user_model.dart';
 class AuthRemoteDatasource {
   const AuthRemoteDatasource([Dio? _]);
 
-  // TODO: replace with real API call once backend is available
   Future<({AuthUserModel user, String accessToken, String refreshToken})> login(
     String email,
     String password,
@@ -23,18 +22,19 @@ class AuthRemoteDatasource {
       throw AuthException('Invalid email or password.');
     }
 
+    final accessToken = 'mock_access_${DateTime.now().millisecondsSinceEpoch}';
+    final refreshToken =
+        'mock_refresh_${DateTime.now().millisecondsSinceEpoch}';
+
     final user = AuthUserModel(
       id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
       name: normalizedEmail.split('@').first,
       email: normalizedEmail,
       role: 'technician',
+      accessToken: accessToken,
+      refreshToken: refreshToken,
     );
 
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return (
-      user: user,
-      accessToken: 'mock_access_token_$timestamp',
-      refreshToken: 'mock_refresh_token_$timestamp',
-    );
+    return (user: user, accessToken: accessToken, refreshToken: refreshToken);
   }
 }
