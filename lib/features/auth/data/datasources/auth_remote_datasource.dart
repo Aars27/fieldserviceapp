@@ -3,8 +3,6 @@ import 'package:dio/dio.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../models/auth_user_model.dart';
 
-/// Simulates the login endpoint locally since no real backend is provided
-/// for this assessment.
 class AuthRemoteDatasource {
   const AuthRemoteDatasource([Dio? _]);
 

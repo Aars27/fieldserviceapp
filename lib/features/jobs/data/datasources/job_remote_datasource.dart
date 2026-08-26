@@ -12,7 +12,6 @@ class JobRemoteDatasource {
 
   JobRemoteDatasource([this._dio]);
 
-  // TODO: replace with real backend API once available
   Future<List<JobModel>> getJobs({
     required int page,
     required int limit,
@@ -96,7 +95,9 @@ class JobRemoteDatasource {
           data: formData,
           options: Options(
             headers: {'Content-Type': 'multipart/form-data'},
-            sendTimeout: const Duration(seconds: AppConstants.receiveTimeoutMs ~/ 1000 * 4),
+            sendTimeout: const Duration(
+              seconds: AppConstants.receiveTimeoutMs ~/ 1000 * 4,
+            ),
           ),
           onSendProgress: onProgress,
         );
@@ -133,7 +134,8 @@ class JobRemoteDatasource {
       JobModel(
         id: 'job_001',
         title: 'HVAC Compressor Inspection',
-        description: 'Check high-pressure valve and replace compressor filter on rooftop unit 3.',
+        description:
+            'Check high-pressure valve and replace compressor filter on rooftop unit 3.',
         status: HiveJobStatus.inProgress,
         priority: HiveJobPriority.urgent,
         assignedTo: 'John Doe',
@@ -181,7 +183,8 @@ class JobRemoteDatasource {
       JobModel(
         id: 'job_004',
         title: 'Emergency Generator Load Test',
-        description: 'Perform 30-minute full load bank test and log fuel consumption.',
+        description:
+            'Perform 30-minute full load bank test and log fuel consumption.',
         status: HiveJobStatus.pending,
         priority: HiveJobPriority.urgent,
         assignedTo: 'John Doe',
@@ -204,14 +207,22 @@ class JobRemoteDatasource {
     if (filter.search != null && filter.search!.isNotEmpty) {
       final q = filter.search!.toLowerCase();
       filtered = filtered
-          .where((j) => j.title.toLowerCase().contains(q) || j.description.toLowerCase().contains(q))
+          .where(
+            (j) =>
+                j.title.toLowerCase().contains(q) ||
+                j.description.toLowerCase().contains(q),
+          )
           .toList();
     }
     if (filter.statuses.isNotEmpty) {
-      filtered = filtered.where((j) => filter.statuses.contains(j.status.toDomain())).toList();
+      filtered = filtered
+          .where((j) => filter.statuses.contains(j.status.toDomain()))
+          .toList();
     }
     if (filter.priorities.isNotEmpty) {
-      filtered = filtered.where((j) => filter.priorities.contains(j.priority.toDomain())).toList();
+      filtered = filtered
+          .where((j) => filter.priorities.contains(j.priority.toDomain()))
+          .toList();
     }
 
     return filtered;
