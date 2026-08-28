@@ -150,6 +150,15 @@ class JobRemoteDatasource {
     if (idx != -1) {
       db[idx].status = HiveJobStatus.fromDomain(newStatus);
       db[idx].updatedAt = DateTime.now();
+      // Append a timeline event — the mock db is the single source of truth
+      // so this is the only place we record transitions
+      final event = StatusEventModel(
+        id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
+        status: HiveJobStatus.fromDomain(newStatus),
+        createdAt: DateTime.now(),
+        note: 'Status updated',
+      );
+      db[idx].timeline = [...db[idx].timeline, event];
       return db[idx];
     }
     return _createMockJob(id, status: HiveJobStatus.fromDomain(newStatus));

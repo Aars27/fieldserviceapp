@@ -36,25 +36,22 @@ Each feature follows `data/ -> domain/ -> presentation/`.
 
 Feature-complete for the assessment scope:
 
-- Secure login with mock auth (see note below) and token storage
-- Dashboard with job stats computed from the local cache
-- Paginated jobs list with pull-to-refresh, debounced search, and multi-filter (status/priority/date)
-- Job details with timeline, attachments, and validated status transitions
-- Offline write queue with FIFO sync-on-reconnect
+- Secure login with mock auth and persisted session (token storage + auto-login on relaunch)
+- Dashboard with job stats computed from the local cache, stat cards deep-link into a pre-filtered jobs list
+- Paginated jobs list with pull-to-refresh, debounced search (with proper reset on clear), and multi-filter (status/priority/date) that combines correctly and preserves pagination
+- Job details with map (OpenStreetMap), timeline (status-change history), attachments (view/open), and validated status transitions
+- Offline write queue with FIFO sync-on-reconnect, including offline-captured photo attachments
 - Image capture, compression, upload with progress and retry
+- Deadline reminder notifications, plus new-job and sync-completion notifications
 - Persistent light/dark theme
 - Offline connectivity banner
-- Local notifications for new jobs and sync completion
 - Unit tests for repositories, usecases, and the sync queue
 
 ## Known limitations
 
-- No real backend was provided for this assessment, so `AuthRemoteDatasource` and `JobRemoteDatasource` simulate API responses locally (mock login, mock paginated job data) instead of hitting a live API. Swapping in real endpoints only requires changing these two classes — the repository/domain layers above them are unaffected.
-- Attachment files aren't opened in-app yet (`url_launcher` isn't wired up); this is a one-dependency addition away from working.
-- The offline sync queue currently replays status/field updates made while offline; attachment (image) uploads made offline are not yet re-queued for sync since the local file path isn't persisted with the queued operation.
-- Background sync currently runs on app foreground/resume + connectivity change, not a true OS-level background task (WorkManager/BGTaskScheduler would be the production next step).
+- No real backend was provided for this assessment, so `AuthRemoteDatasource` and `JobRemoteDatasource` simulate API responses locally, maintaining state in-memory for the app session so updates persist across fetches. Swapping in real endpoints only requires changing these two classes.
+- Background sync runs on app foreground/resume + connectivity change, not a true OS-level background task — `workmanager` was evaluated but caused repeated Gradle/Kotlin build failures in this environment, so it was left out rather than risk a broken build this close to the deadline. WorkManager/BGTaskScheduler would be the production next step.
 - Conflict resolution uses last-write-wins with a retry-then-dead-letter queue; a production version would want per-field merge or a manual resolution UI.
-- Map view on job details is a placeholder pending a Google Maps API key.
 
 ## Testing
 

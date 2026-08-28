@@ -12,7 +12,6 @@ import '../../domain/entities/job_status.dart';
 import '../../domain/repositories/job_repository.dart';
 import '../datasources/job_local_datasource.dart';
 import '../datasources/job_remote_datasource.dart';
-import '../models/job_model.dart';
 import '../../../notifications/notification_service.dart';
 
 class JobRepositoryImpl implements JobRepository {
@@ -94,23 +93,16 @@ class JobRepositoryImpl implements JobRepository {
   Future<Result<Job>> updateJobStatus(String id, JobStatus newStatus) async {
     try {
       final model = await _remote.updateJobStatus(id, newStatus);
-      
+
+      // Preserve any locally-added attachments the mock "network" doesn't know about
       final cached = _local.getJob(id);
-      if (cached != null) {
-        // Preserve local attachments that the remote mock might have lost
+      if (cached != null && cached.attachments.isNotEmpty) {
         model.attachments = cached.attachments;
-        
-        // Append the new timeline event and sort most recent first
-        final newEvent = StatusEventModel(
-          id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
-          status: HiveJobStatus.fromDomain(newStatus),
-          createdAt: DateTime.now(),
-          note: 'Status updated',
-        );
-        model.timeline = List.from(cached.timeline)..add(newEvent);
-        model.timeline.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       }
 
+      // Timeline events are appended inside the mock datasource (single source
+      // of truth). No separate append here to avoid double-adding or reading
+      // stale empty-timeline data from Hive.
       await _local.saveJob(model);
       // Cancel deadline reminder when job reaches a terminal state.
       if (newStatus == JobStatus.completed || newStatus == JobStatus.cancelled) {
