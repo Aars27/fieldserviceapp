@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Exposes the system temp/cache dir — this is where flutter_image_compress
+         writes its output (via getTemporaryDirectory()) and where open_filex
+         needs to read the file to hand it off to an external viewer app. -->
+    <cache-path name="cache" path="." />
+    <!-- Also expose app-internal files dir in case any file is saved there -->
+    <files-path name="files" path="." />
+    <!-- External cache (used on some devices by image_picker) -->
+    <external-cache-path name="external_cache" path="." />
+</paths>

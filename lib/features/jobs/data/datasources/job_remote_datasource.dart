@@ -12,6 +12,69 @@ class JobRemoteDatasource {
 
   JobRemoteDatasource([this._dio]);
 
+  // ── Stateful in-memory mock "database" ──────────────────────────────────
+  // Initialized once on first access so updates survive re-fetches within
+  // the same app session, just like a real backend would behave.
+  static List<JobModel>? _mockDb;
+
+  static List<JobModel> _getOrCreateMockDb() {
+    if (_mockDb != null) return _mockDb!;
+    final now = DateTime.now();
+    final statuses = [
+      HiveJobStatus.pending,
+      HiveJobStatus.inProgress,
+      HiveJobStatus.completed,
+      HiveJobStatus.cancelled,
+    ];
+    final priorities = [
+      HiveJobPriority.low,
+      HiveJobPriority.normal,
+      HiveJobPriority.high,
+      HiveJobPriority.urgent,
+    ];
+    final titles = [
+      'HVAC Compressor Inspection',
+      'Electrical Panel Replacement',
+      'Plumbing Leak Repair',
+      'Fire Alarm Calibration',
+      'Generator Load Test',
+      'Water Filter Servicing',
+      'Elevator Safety Inspection',
+      'Boiler Maintenance',
+      'Security System Upgrade',
+      'Solar Panel Cleaning',
+    ];
+    const locations = [
+      [37.7749, -122.4194], // SF Center
+      [37.7816, -122.4056], // SF SOMA
+      [37.7952, -122.4028], // SF FiDi
+      [37.7694, -122.4862], // SF Golden Gate Park
+      [37.7516, -122.4177], // SF Mission
+      [37.7338, -122.4463], // SF Sunnyside
+    ];
+    _mockDb = List.generate(50, (i) {
+      final idx = i + 1;
+      final loc = locations[i % locations.length];
+      final hasLocation = i % 10 != 0;
+      final scheduledAt = i.isEven
+          ? now.subtract(Duration(hours: i + 1))
+          : now.add(Duration(hours: i + 1));
+      return JobModel(
+        id: 'job_${idx.toString().padLeft(3, '0')}',
+        title: '${titles[i % titles.length]} #$idx',
+        description: 'Standard maintenance task for job $idx. Inspect, service, and document.',
+        status: statuses[i % statuses.length],
+        priority: priorities[(i ~/ 4) % priorities.length],
+        assignedTo: i.isEven ? 'John Doe' : 'Jane Smith',
+        scheduledAt: scheduledAt,
+        updatedAt: now,
+        latitude: hasLocation ? loc[0] : null,
+        longitude: hasLocation ? loc[1] : null,
+      );
+    });
+    return _mockDb!;
+  }
+
   Future<List<JobModel>> getJobs({
     required int page,
     required int limit,
@@ -58,10 +121,15 @@ class JobRemoteDatasource {
         final response = await _dio.get('/jobs/$id');
         return JobModel.fromJson(response.data as Map<String, dynamic>);
       } catch (_) {
-        return _createMockJob(id);
+        // fall through to mock
       }
     }
-    return _createMockJob(id);
+    // Look up in the stateful mock db first; fall back to creating a stub
+    final db = _getOrCreateMockDb();
+    return db.firstWhere(
+      (j) => j.id == id,
+      orElse: () => _createMockJob(id),
+    );
   }
 
   Future<JobModel> updateJobStatus(String id, JobStatus newStatus) async {
@@ -73,8 +141,16 @@ class JobRemoteDatasource {
         );
         return JobModel.fromJson(response.data as Map<String, dynamic>);
       } catch (_) {
-        return _createMockJob(id, status: HiveJobStatus.fromDomain(newStatus));
+        // fall through to mock
       }
+    }
+    // Mutate the stateful mock db so the change is visible in subsequent getJobs() calls
+    final db = _getOrCreateMockDb();
+    final idx = db.indexWhere((j) => j.id == id);
+    if (idx != -1) {
+      db[idx].status = HiveJobStatus.fromDomain(newStatus);
+      db[idx].updatedAt = DateTime.now();
+      return db[idx];
     }
     return _createMockJob(id, status: HiveJobStatus.fromDomain(newStatus));
   }
@@ -128,71 +204,8 @@ class JobRemoteDatasource {
   }
 
   List<JobModel> _getMockJobs(int page, int limit, JobsFilter filter) {
-    final now = DateTime.now();
-
-    // ── 50-job mock dataset ──────────────────────────────────────────────────
-    // Enough to exercise 3+ pages at the default page size of 15.
-    final allMockJobs = List.generate(50, (i) {
-      final idx = i + 1;
-      final statuses = [
-        HiveJobStatus.pending,
-        HiveJobStatus.inProgress,
-        HiveJobStatus.completed,
-        HiveJobStatus.cancelled,
-      ];
-      final priorities = [
-        HiveJobPriority.low,
-        HiveJobPriority.normal,
-        HiveJobPriority.high,
-        HiveJobPriority.urgent,
-      ];
-      final titles = [
-        'HVAC Compressor Inspection',
-        'Electrical Panel Replacement',
-        'Plumbing Leak Repair',
-        'Fire Alarm Calibration',
-        'Generator Load Test',
-        'Water Filter Servicing',
-        'Elevator Safety Inspection',
-        'Boiler Maintenance',
-        'Security System Upgrade',
-        'Solar Panel Cleaning',
-      ];
-      final status = statuses[i % statuses.length];
-      final priority = priorities[(i ~/ 4) % priorities.length];
-      final title = '${titles[i % titles.length]} #$idx';
-      // Alternate past/future scheduled times to get realistic overdue spread
-      final scheduledAt = i.isEven
-          ? now.subtract(Duration(hours: i + 1))
-          : now.add(Duration(hours: i + 1));
-
-      final locations = const [
-        [37.7749, -122.4194], // SF Center
-        [37.7816, -122.4056], // SF SOMA
-        [37.7952, -122.4028], // SF FiDi
-        [37.7694, -122.4862], // SF Golden Gate Park
-        [37.7516, -122.4177], // SF Mission
-        [37.7338, -122.4463], // SF Sunnyside
-      ];
-      final loc = locations[i % locations.length];
-      final hasLocation = i % 10 != 0;
-
-      return JobModel(
-        id: 'job_${idx.toString().padLeft(3, '0')}',
-        title: title,
-        description: 'Standard maintenance task for job $idx. Inspect, service, and document.',
-        status: status,
-        priority: priority,
-        assignedTo: i.isEven ? 'John Doe' : 'Jane Smith',
-        scheduledAt: scheduledAt,
-        updatedAt: now,
-        latitude: hasLocation ? loc[0] : null,
-        longitude: hasLocation ? loc[1] : null,
-      );
-    });
-
-    // ── Apply filters (AND logic) ────────────────────────────────────────────
-    var filtered = allMockJobs;
+    // Read from the stateful mock db — never regenerate from scratch
+    var filtered = List<JobModel>.from(_getOrCreateMockDb());
 
     if (filter.search != null && filter.search!.isNotEmpty) {
       final q = filter.search!.toLowerCase();

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:open_filex/open_filex.dart';
+
 import '../../../jobs/domain/entities/attachment.dart';
 import '../providers/job_detail_provider.dart';
 
@@ -53,13 +55,38 @@ class AttachmentItem extends ConsumerWidget {
             style: TextStyle(color: cs.outline, fontSize: 12),
           ),
           trailing: Icon(Icons.open_in_new_rounded, size: 18, color: cs.outline),
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Opening ${attachment.filename}…'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+          onTap: () async {
+            // attachment.url is the local file path saved at upload time
+            final path = attachment.url;
+            if (!await File(path).exists()) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('File not found: ${attachment.filename}'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+              return;
+            }
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Opening ${attachment.filename}…'),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            }
+            final result = await OpenFilex.open(path);
+            if (result.type != ResultType.done && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Could not open file: ${result.message}'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
           },
         ),
       ),

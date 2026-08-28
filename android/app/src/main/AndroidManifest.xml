@@ -30,6 +30,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FileProvider: required for open_filex to share internal/cache files
+             with external viewer apps on Android 7+ -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -40,6 +51,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Required for open_filex to find a viewer app for image/pdf files -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="*/*"/>
         </intent>
     </queries>
 </manifest>
