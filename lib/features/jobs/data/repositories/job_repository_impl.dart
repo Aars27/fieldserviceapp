@@ -54,7 +54,6 @@ class JobRepositoryImpl implements JobRepository {
         }
       }
       final jobs = models.map((m) => m.toDomain()).toList();
-      // Schedule deadline reminders for all fetched jobs.
       for (final job in jobs) {
         unawaited(NotificationService.scheduleDeadlineReminder(job));
       }
@@ -109,7 +108,6 @@ class JobRepositoryImpl implements JobRepository {
       // of truth). No separate append here to avoid double-adding or reading
       // stale empty-timeline data from Hive.
       await _local.saveJob(model);
-      // Cancel deadline reminder when job reaches a terminal state.
       if (newStatus == JobStatus.completed || newStatus == JobStatus.cancelled) {
         unawaited(NotificationService.cancelDeadlineReminder(id));
       }
@@ -140,10 +138,8 @@ class JobRepositoryImpl implements JobRepository {
         sizeBytes: bytes,
       );
 
-      // Simulate upload progress bar completing (local save is instant).
       onProgress?.call(100, 100);
 
-      // Persist the attachment in the local Hive cache so it survives restarts.
       final cached = _local.getJob(id);
       if (cached != null) {
         cached.attachments = [...cached.attachments, localModel];

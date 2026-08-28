@@ -97,7 +97,6 @@ final pendingSyncOperationsProvider = Provider<List<PendingSyncOperation>>((ref)
 final isAttachmentPendingSyncProvider =
     Provider.family<bool, ({String jobId, String attachmentId, String? filename})>(
         (ref, params) {
-  // Watching syncNotifierProvider ensures this recomputes whenever queue changes or drains
   ref.watch(syncNotifierProvider);
   final queue = ref.read(syncQueueProvider);
   return queue.allPending.any((op) {
@@ -114,7 +113,6 @@ final isAttachmentPendingSyncProvider =
 
 /// Reactively checks whether a specific job has ANY pending sync operations in the queue.
 final isJobPendingSyncProvider = Provider.family<bool, String>((ref, jobId) {
-  // Watching syncNotifierProvider ensures this recomputes whenever queue changes or drains
   ref.watch(syncNotifierProvider);
   final queue = ref.read(syncQueueProvider);
   return queue.allPending.any((op) => op.jobId == jobId);

@@ -62,7 +62,6 @@ class SeenJobsNotifier extends Notifier<Set<String>> {
 
 /// Provides all known jobs across the in-memory mock DB, local cache, and current jobs state.
 final allKnownJobsProvider = Provider<List<Job>>((ref) {
-  // Watching jobsNotifierProvider ensures this recomputes whenever jobs list is updated/refreshed
   final jobsState = ref.watch(jobsNotifierProvider);
   final local = ref
       .watch(jobLocalDatasourceProvider)
@@ -89,7 +88,6 @@ final unseenJobsProvider = Provider<List<Job>>((ref) {
   final allJobs = ref.watch(allKnownJobsProvider);
 
   final unseen = allJobs.where((j) => !seenIds.contains(j.id)).toList();
-  // Sort most recent first
   unseen.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
   return unseen;
 });
@@ -107,10 +105,8 @@ Future<Job> simulateNewJobAction(WidgetRef ref) async {
   final newModel = JobRemoteDatasource.simulateNewJob();
   final newJob = newModel.toDomain();
 
-  // Trigger OS-level notification
   await NotificationService.showJobAssigned(newJob);
 
-  // Refresh jobs list and dashboard state
   ref.read(jobsNotifierProvider.notifier).refresh();
   ref.read(dashboardProvider.notifier).refresh();
 

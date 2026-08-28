@@ -142,7 +142,6 @@ class AttachmentItem extends ConsumerWidget {
           ),
           trailing: Icon(Icons.open_in_new_rounded, size: 18, color: cs.outline),
           onTap: () async {
-            // attachment.url is the local file path saved at upload time
             final path = attachment.url;
             if (!await File(path).exists()) {
               if (context.mounted) {

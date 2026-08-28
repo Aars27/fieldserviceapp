@@ -11,7 +11,6 @@ class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
-    // Initialize timezone database and set device-local location.
     tz_data.initializeTimeZones();
     final timezoneInfo = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
@@ -56,8 +55,6 @@ class NotificationService {
   }
 
   // ── Deadline Reminders ─────────────────────────────────────────────────────
-
-  /// Schedules a local notification [AppConstants.deadlineReminderLeadTime]
 
   static Future<void> scheduleDeadlineReminder(Job job) async {
     if (job.status == JobStatus.completed ||

@@ -29,7 +29,6 @@ class NotificationsBottomSheet extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 12, bottom: 8),
@@ -42,7 +41,6 @@ class NotificationsBottomSheet extends ConsumerWidget {
             ),
           ),
 
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
             child: Row(
@@ -152,7 +150,6 @@ class NotificationsBottomSheet extends ConsumerWidget {
 
           const Divider(height: 16),
 
-          // Content
           Flexible(
             child: unseenJobs.isEmpty
                 ? Padding(
@@ -202,11 +199,9 @@ class NotificationsBottomSheet extends ConsumerWidget {
                       return _UnseenJobTile(
                         job: job,
                         onTap: () {
-                          // Mark this job as seen
                           ref
                               .read(seenJobsNotifierProvider.notifier)
                               .markSeen(job.id);
-                          // Close the bottom sheet and navigate to job details
                           Navigator.pop(context);
                           context.push(
                             AppRoutes.jobDetails.replaceAll(':id', job.id),
