@@ -9,6 +9,7 @@ import '../../../../core/widgets/state_views.dart';
 import '../../../jobs/domain/entities/attachment.dart';
 import '../../../jobs/domain/entities/job.dart';
 import '../../../jobs/domain/entities/status_event.dart';
+import '../../../notifications/presentation/providers/unseen_jobs_provider.dart';
 import '../providers/job_detail_provider.dart';
 import '../widgets/attachment_item.dart';
 import '../widgets/status_transition_widget.dart';
@@ -21,6 +22,11 @@ class JobDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Automatically mark this job as seen when viewed
+    Future.microtask(() {
+      ref.read(seenJobsNotifierProvider.notifier).markSeen(jobId);
+    });
+
     final asyncJob = ref.watch(jobDetailProvider(jobId));
 
     return asyncJob.when(

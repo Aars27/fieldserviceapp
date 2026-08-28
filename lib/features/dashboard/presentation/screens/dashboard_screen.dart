@@ -8,6 +8,7 @@ import '../../../../core/widgets/state_views.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../jobs/domain/entities/job_status.dart';
 import '../../../jobs/domain/repositories/job_repository.dart';
+import '../../../notifications/presentation/widgets/notifications_bell_button.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../providers/dashboard_provider.dart';
 
@@ -25,6 +26,7 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
+          const NotificationsBellButton(),
           IconButton(
             icon: Icon(
               themeMode == ThemeMode.dark || isDark

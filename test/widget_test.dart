@@ -9,6 +9,7 @@ import 'package:fieldserviceapp/features/jobs/domain/entities/job.dart';
 import 'package:fieldserviceapp/features/jobs/domain/entities/job_priority.dart';
 import 'package:fieldserviceapp/features/jobs/domain/entities/job_status.dart';
 import 'package:fieldserviceapp/features/jobs/domain/repositories/job_repository.dart';
+import 'package:fieldserviceapp/features/notifications/presentation/providers/unseen_jobs_provider.dart';
 import 'package:fieldserviceapp/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -132,5 +133,81 @@ void main() {
     expect(stats.inProgressCount, 1);
     expect(stats.completedCount, 1);
     expect(stats.overdueCount, 1);
+  });
+
+  test('New-job notification: SeenJobsNotifier marks seen, persists, and detects unseen jobs', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+    );
+
+    // Initial state: all initial mock jobs are marked seen on first run
+    final initialSeen = container.read(seenJobsNotifierProvider);
+    expect(initialSeen.isNotEmpty, isTrue);
+
+    // Simulate a new job with a new ID not in seen set
+    const newJobId = 'job_test_new_999';
+    expect(initialSeen.contains(newJobId), isFalse);
+
+    // Mark seen
+    await container.read(seenJobsNotifierProvider.notifier).markSeen(newJobId);
+    expect(container.read(seenJobsNotifierProvider).contains(newJobId), isTrue);
+
+    // Verify persisted in SharedPreferences
+    final saved = prefs.getStringList('seen_job_ids');
+    expect(saved?.contains(newJobId), isTrue);
+  });
+
+  test('New-job notification: Unseen jobs sort to top of the list', () {
+    final seenIds = {'1', '2'};
+    final jobs = [
+      Job(
+        id: '1',
+        title: 'Seen Job 1',
+        description: 'Desc',
+        status: JobStatus.inProgress,
+        priority: JobPriority.normal,
+        assignedTo: 'Tech',
+        scheduledAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+      Job(
+        id: 'new_3',
+        title: 'New Job 3',
+        description: 'Desc',
+        status: JobStatus.pending,
+        priority: JobPriority.urgent,
+        assignedTo: 'Tech',
+        scheduledAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+      Job(
+        id: '2',
+        title: 'Seen Job 2',
+        description: 'Desc',
+        status: JobStatus.pending,
+        priority: JobPriority.normal,
+        assignedTo: 'Tech',
+        scheduledAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ];
+
+    final sorted = List<Job>.from(jobs);
+    sorted.sort((a, b) {
+      final aNew = !seenIds.contains(a.id);
+      final bNew = !seenIds.contains(b.id);
+      if (aNew && !bNew) return -1;
+      if (!aNew && bNew) return 1;
+      return 0;
+    });
+
+    expect(sorted.first.id, 'new_3');
+    expect(sorted[1].id, '1');
+    expect(sorted[2].id, '2');
   });
 }

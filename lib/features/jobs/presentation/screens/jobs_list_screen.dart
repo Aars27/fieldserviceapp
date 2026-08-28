@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/state_views.dart';
+import '../../../notifications/presentation/providers/unseen_jobs_provider.dart';
+import '../../../notifications/presentation/widgets/notifications_bell_button.dart';
+import '../../domain/entities/job.dart';
 import '../../domain/repositories/job_repository.dart';
 import '../providers/jobs_provider.dart';
 import '../widgets/filter_bottom_sheet.dart';
@@ -73,6 +76,7 @@ class _JobsListScreenState extends ConsumerState<JobsListScreen> {
       appBar: AppBar(
         title: const Text('Jobs'),
         actions: [
+          const NotificationsBellButton(),
           IconButton(
             icon: Badge(
               isLabelVisible: hasFilters,
@@ -156,14 +160,25 @@ class _JobsListScreenState extends ConsumerState<JobsListScreen> {
       );
     }
 
+    final seenIds = ref.watch(seenJobsNotifierProvider);
+    // Sort new (unseen) jobs to the top above already-seen jobs
+    final sortedJobs = List<Job>.from(state.jobs);
+    sortedJobs.sort((a, b) {
+      final aNew = !seenIds.contains(a.id);
+      final bNew = !seenIds.contains(b.id);
+      if (aNew && !bNew) return -1;
+      if (!aNew && bNew) return 1;
+      return 0;
+    });
+
     return RefreshIndicator(
       onRefresh: () => ref.read(jobsNotifierProvider.notifier).refresh(),
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.only(top: 4, bottom: 24),
-        itemCount: state.jobs.length + (state.isLoadingMore ? 1 : 0),
+        itemCount: sortedJobs.length + (state.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == state.jobs.length) {
+          if (index == sortedJobs.length) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
               child: Center(
@@ -175,10 +190,17 @@ class _JobsListScreenState extends ConsumerState<JobsListScreen> {
               ),
             );
           }
-          final job = state.jobs[index];
+          final job = sortedJobs[index];
+          final isNew = !seenIds.contains(job.id);
           return JobCard(
             job: job,
-            onTap: () => context.push(AppRoutes.jobDetails.replaceAll(':id', job.id)),
+            isNew: isNew,
+            onTap: () {
+              if (isNew) {
+                ref.read(seenJobsNotifierProvider.notifier).markSeen(job.id);
+              }
+              context.push(AppRoutes.jobDetails.replaceAll(':id', job.id));
+            },
           );
         },
       ),

@@ -21,4 +21,6 @@ class AppConstants {
 
   static const String jobsBoxName = 'jobs_box';
   static const String pendingSyncBoxName = 'pending_sync_box';
+  static const String seenJobIdsKey = 'seen_job_ids';
+  static const String seenJobsInitializedKey = 'seen_jobs_initialized';
 }

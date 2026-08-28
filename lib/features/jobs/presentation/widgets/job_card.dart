@@ -6,9 +6,15 @@ import '../../domain/entities/job.dart';
 
 class JobCard extends StatelessWidget {
   final Job job;
+  final bool isNew;
   final VoidCallback onTap;
 
-  const JobCard({super.key, required this.job, required this.onTap});
+  const JobCard({
+    super.key,
+    required this.job,
+    this.isNew = false,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,10 +31,12 @@ class JobCard extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: job.isOverdue
-                ? (isDark ? const Color(0xFF991B1B) : const Color(0xFFFCA5A5))
-                : borderColor,
-            width: job.isOverdue ? 1.5 : 1,
+            color: isNew
+                ? cs.primary
+                : job.isOverdue
+                    ? (isDark ? const Color(0xFF991B1B) : const Color(0xFFFCA5A5))
+                    : borderColor,
+            width: isNew ? 1.5 : (job.isOverdue ? 1.5 : 1),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -43,6 +51,25 @@ class JobCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (isNew) ...[
+                      Container(
+                        margin: const EdgeInsets.only(right: 8, top: 1),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'NEW',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
                     Expanded(
                       child: Text(
                         job.title,

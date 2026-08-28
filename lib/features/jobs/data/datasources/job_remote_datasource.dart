@@ -75,6 +75,68 @@ class JobRemoteDatasource {
     return _mockDb!;
   }
 
+  /// Returns all currently available mock jobs in memory.
+  static List<JobModel> getAllMockJobs() => List.unmodifiable(_getOrCreateMockDb());
+
+  /// Returns all mock job IDs currently stored in the in-memory database.
+  static List<String> getAllMockJobIds() =>
+      _getOrCreateMockDb().map((j) => j.id).toList();
+
+  static int _simulatedJobCounter = 100;
+
+  /// Simulates a newly dispatched field service job from the backend.
+  /// Inserts the new job at index 0 of the mock database so it appears
+  /// immediately on the next getJobs() fetch or refresh.
+  static JobModel simulateNewJob({
+    String? title,
+    HiveJobPriority? priority,
+  }) {
+    final db = _getOrCreateMockDb();
+    _simulatedJobCounter++;
+    final idx = _simulatedJobCounter;
+    final now = DateTime.now();
+
+    final titles = [
+      'Emergency Transformer Inspection',
+      'High-Voltage Cable Splicing',
+      'Chiller Plant Diagnostic',
+      'Industrial Pump Overhaul',
+      'Substation Circuit Breaker Test',
+      'Critical Server Room HVAC Repair',
+    ];
+    final jobTitle = title ?? '${titles[idx % titles.length]} #$idx';
+    final jobPriority = priority ??
+        (idx % 2 == 0 ? HiveJobPriority.urgent : HiveJobPriority.high);
+
+    const locations = [
+      [37.7749, -122.4194],
+      [37.7816, -122.4056],
+      [37.7952, -122.4028],
+      [37.7694, -122.4862],
+      [37.7516, -122.4177],
+      [37.7338, -122.4463],
+    ];
+    final loc = locations[idx % locations.length];
+
+    final newJob = JobModel(
+      id: 'job_new_$idx',
+      title: jobTitle,
+      description:
+          'Newly dispatched urgent field service call #$idx. Immediate site inspection and diagnostics requested.',
+      status: HiveJobStatus.pending,
+      priority: jobPriority,
+      assignedTo: 'John Doe',
+      scheduledAt: now.add(const Duration(hours: 1)),
+      updatedAt: now,
+      latitude: loc[0],
+      longitude: loc[1],
+    );
+
+    // Insert at index 0 so it appears at the very top of subsequent fetches
+    db.insert(0, newJob);
+    return newJob;
+  }
+
   Future<List<JobModel>> getJobs({
     required int page,
     required int limit,
