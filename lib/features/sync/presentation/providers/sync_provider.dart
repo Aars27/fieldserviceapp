@@ -6,14 +6,18 @@ import 'package:hive/hive.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../jobs/presentation/providers/jobs_provider.dart';
-import '../../data/sync_queue.dart';
 import '../../data/sync_service.dart';
 import '../../domain/entities/pending_sync_operation.dart';
+import 'sync_queue_provider.dart';
 
-final syncQueueProvider = Provider<SyncQueue>((ref) => SyncQueue());
+export 'sync_queue_provider.dart' show syncQueueProvider;
 
 final syncServiceProvider = Provider<SyncService>((ref) {
-  return SyncService(ref.read(jobRepositoryProvider), ref.read(syncQueueProvider));
+  return SyncService(
+    ref.read(jobRepositoryProvider),
+    ref.read(syncQueueProvider),
+    ref.read(jobRemoteDatasourceProvider),
+  );
 });
 
 class SyncState {

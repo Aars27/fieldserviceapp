@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fieldserviceapp/core/errors/result.dart';
 
+import '../../jobs/data/datasources/job_remote_datasource.dart';
 import '../../jobs/domain/entities/job_status.dart';
 import '../../jobs/domain/repositories/job_repository.dart';
 import '../domain/entities/pending_sync_operation.dart';
@@ -12,8 +14,9 @@ const _maxRetries = 3;
 class SyncService {
   final JobRepository _jobRepo;
   final SyncQueue _queue;
+  final JobRemoteDatasource _remote;
 
-  SyncService(this._jobRepo, this._queue);
+  SyncService(this._jobRepo, this._queue, this._remote);
 
   Future<int> drainQueue() async {
     int synced = 0;
@@ -56,10 +59,24 @@ class SyncService {
           };
 
         case SyncOperationType.addAttachment:
-          // Attachment re-upload on sync is not yet implemented — attachments
-          // should be queued as file paths but we'd need to re-open the file.
-          // TODO: implement attachment sync when the file path is persisted in the op.
-          return false;
+          // Parse the file path that was persisted when the op was enqueued.
+          final payload = jsonDecode(op.payload) as Map<String, dynamic>;
+          final filePath = payload['file_path'] as String?;
+          if (filePath == null) return false;
+
+          final file = File(filePath);
+          if (!file.existsSync()) {
+            // File was deleted from cache — nothing to upload, mark done.
+            return true;
+          }
+
+          try {
+            // Attempt the real upload to the remote (mock or real API).
+            await _remote.uploadAttachment(op.jobId, file);
+            return true;
+          } catch (_) {
+            return false;
+          }
       }
     } catch (_) {
       return false;

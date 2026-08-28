@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -12,13 +13,17 @@ import '../../domain/entities/job_status.dart';
 import '../../domain/repositories/job_repository.dart';
 import '../datasources/job_local_datasource.dart';
 import '../datasources/job_remote_datasource.dart';
+import '../models/job_model.dart';
 import '../../../notifications/notification_service.dart';
+import '../../../sync/data/sync_queue.dart';
+import '../../../sync/domain/entities/pending_sync_operation.dart';
 
 class JobRepositoryImpl implements JobRepository {
   final JobRemoteDatasource _remote;
   final JobLocalDatasource _local;
+  final SyncQueue _syncQueue;
 
-  JobRepositoryImpl(this._remote, this._local);
+  JobRepositoryImpl(this._remote, this._local, this._syncQueue);
 
   @override
   Future<Result<List<Job>>> getJobs({
@@ -121,16 +126,50 @@ class JobRepositoryImpl implements JobRepository {
     void Function(int, int)? onProgress,
   }) async {
     try {
-      final model = await _remote.uploadAttachment(id, file, onProgress: onProgress);
-      // Update the cached job with the new attachment
+      // Build a local attachment immediately so the UI can display it right away.
+      // The real upload happens when SyncService drains this operation.
+      final filename = file.path.split(Platform.pathSeparator).last;
+      final bytes = await file.length();
+      final attachmentId = 'att_${DateTime.now().millisecondsSinceEpoch}';
+
+      final localModel = AttachmentModel(
+        id: attachmentId,
+        filename: filename,
+        url: file.path,
+        mimeType: 'image/jpeg',
+        sizeBytes: bytes,
+      );
+
+      // Simulate upload progress bar completing (local save is instant).
+      onProgress?.call(100, 100);
+
+      // Persist the attachment in the local Hive cache so it survives restarts.
       final cached = _local.getJob(id);
       if (cached != null) {
-        cached.attachments = [...cached.attachments, model];
+        cached.attachments = [...cached.attachments, localModel];
         await _local.saveJob(cached);
       }
-      return Ok(model.toDomain());
+
+      // Enqueue a sync operation. SyncService will attempt the real upload
+      // as soon as connectivity is available and remove the op on success,
+      // at which point isAttachmentPendingSyncProvider returns false → "Synced".
+      await _syncQueue.enqueue(PendingSyncOperation(
+        id: attachmentId,
+        type: SyncOperationType.addAttachment,
+        jobId: id,
+        payload: jsonEncode({
+          'attachment_id': attachmentId,
+          'filename': filename,
+          'file_path': file.path,
+        }),
+        createdAt: DateTime.now(),
+      ));
+
+      return Ok(localModel.toDomain());
     } on ServerException catch (e) {
       return Err(ServerFailure(e.message));
+    } catch (e) {
+      return Err(ServerFailure(e.toString()));
     }
   }
 

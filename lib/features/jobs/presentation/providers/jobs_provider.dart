@@ -5,6 +5,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/result.dart';
 import '../../../../core/utils/debouncer.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../sync/presentation/providers/sync_queue_provider.dart';
 import '../../data/datasources/job_local_datasource.dart';
 import '../../data/datasources/job_remote_datasource.dart';
 import '../../data/repositories/job_repository_impl.dart';
@@ -26,6 +27,7 @@ final jobRepositoryProvider = Provider<JobRepository>((ref) {
   return JobRepositoryImpl(
     ref.read(jobRemoteDatasourceProvider),
     ref.read(jobLocalDatasourceProvider),
+    ref.read(syncQueueProvider),
   );
 });
 
