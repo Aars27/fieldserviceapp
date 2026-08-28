@@ -51,7 +51,6 @@ Future<void> main() async {
 
 class FieldServiceApp extends StatelessWidget {
   final GoRouter router;
-
   const FieldServiceApp({super.key, required this.router});
 
   @override

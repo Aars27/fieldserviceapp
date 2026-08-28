@@ -5,6 +5,8 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/job_details/presentation/screens/job_details_screen.dart';
+import '../../features/jobs/domain/entities/job_status.dart';
+import '../../features/jobs/domain/repositories/job_repository.dart';
 import '../../features/jobs/presentation/screens/jobs_list_screen.dart';
 import '../widgets/main_scaffold.dart';
 
@@ -22,8 +24,8 @@ GoRouter buildRouter(ProviderContainer container) {
   return GoRouter(
     initialLocation: AppRoutes.login,
     redirect: (context, state) async {
-      final authState = container.read(authNotifierProvider);
-      final isLoggedIn = authState.valueOrNull != null;
+      final authUser = await container.read(authNotifierProvider.future);
+      final isLoggedIn = authUser != null;
       final goingToLogin = state.matchedLocation == AppRoutes.login;
 
       if (!isLoggedIn && !goingToLogin) return AppRoutes.login;
@@ -44,7 +46,28 @@ GoRouter buildRouter(ProviderContainer container) {
           ),
           GoRoute(
             path: AppRoutes.jobs,
-            builder: (context, state) => const JobsListScreen(),
+            builder: (context, state) {
+              final statusParam = state.uri.queryParameters['status'];
+              final overdueParam = state.uri.queryParameters['overdue'] == 'true';
+
+              Set<JobStatus> statuses = {};
+              if (statusParam != null && statusParam.isNotEmpty) {
+                statuses = statusParam
+                    .split(',')
+                    .map((s) => JobStatus.fromString(s.trim()))
+                    .toSet();
+              }
+
+              final filter = (state.extra as JobsFilter?) ??
+                  (statusParam != null || overdueParam
+                      ? JobsFilter(
+                          statuses: statuses,
+                          overdueOnly: overdueParam,
+                        )
+                      : null);
+
+              return JobsListScreen(initialFilter: filter);
+            },
           ),
         ],
       ),

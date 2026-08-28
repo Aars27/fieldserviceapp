@@ -7,7 +7,10 @@ import '../models/job_model.dart';
 class JobLocalDatasource {
   Box<JobModel> get _box => Hive.box<JobModel>(AppConstants.jobsBoxName);
 
-  Future<void> saveJobs(List<JobModel> jobs) async {
+  Future<void> saveJobs(List<JobModel> jobs, {bool clear = false}) async {
+    if (clear) {
+      await _box.clear();
+    }
     final map = {for (final j in jobs) j.id: j};
     await _box.putAll(map);
   }

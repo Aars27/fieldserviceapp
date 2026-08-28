@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -11,6 +12,8 @@ import '../../domain/entities/job_status.dart';
 import '../../domain/repositories/job_repository.dart';
 import '../datasources/job_local_datasource.dart';
 import '../datasources/job_remote_datasource.dart';
+import '../models/job_model.dart';
+import '../../../notifications/notification_service.dart';
 
 class JobRepositoryImpl implements JobRepository {
   final JobRemoteDatasource _remote;
@@ -34,13 +37,24 @@ class JobRepositoryImpl implements JobRepository {
       );
       if (page == 1) {
         // Only replace cache on fresh loads, not paginated appends
-        await _local.saveJobs(models);
+        final isDefaultFilter = filter.search == null &&
+            filter.statuses.isEmpty &&
+            filter.priorities.isEmpty &&
+            filter.from == null &&
+            filter.to == null &&
+            !filter.overdueOnly;
+        await _local.saveJobs(models, clear: isDefaultFilter);
       } else {
         for (final m in models) {
           await _local.saveJob(m);
         }
       }
-      return Ok(models.map((m) => m.toDomain()).toList());
+      final jobs = models.map((m) => m.toDomain()).toList();
+      // Schedule deadline reminders for all fetched jobs.
+      for (final job in jobs) {
+        unawaited(NotificationService.scheduleDeadlineReminder(job));
+      }
+      return Ok(jobs);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         // Caller cancelled deliberately — return the current cache silently
@@ -63,7 +77,9 @@ class JobRepositoryImpl implements JobRepository {
     try {
       final model = await _remote.getJob(id);
       await _local.saveJob(model);
-      return Ok(model.toDomain());
+      final job = model.toDomain();
+      unawaited(NotificationService.scheduleDeadlineReminder(job));
+      return Ok(job);
     } on ServerException catch (e) {
       try {
         final cached = _local.getJob(id);
@@ -78,7 +94,28 @@ class JobRepositoryImpl implements JobRepository {
   Future<Result<Job>> updateJobStatus(String id, JobStatus newStatus) async {
     try {
       final model = await _remote.updateJobStatus(id, newStatus);
+      
+      final cached = _local.getJob(id);
+      if (cached != null) {
+        // Preserve local attachments that the remote mock might have lost
+        model.attachments = cached.attachments;
+        
+        // Append the new timeline event and sort most recent first
+        final newEvent = StatusEventModel(
+          id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
+          status: HiveJobStatus.fromDomain(newStatus),
+          createdAt: DateTime.now(),
+          note: 'Status updated',
+        );
+        model.timeline = List.from(cached.timeline)..add(newEvent);
+        model.timeline.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      }
+
       await _local.saveJob(model);
+      // Cancel deadline reminder when job reaches a terminal state.
+      if (newStatus == JobStatus.completed || newStatus == JobStatus.cancelled) {
+        unawaited(NotificationService.cancelDeadlineReminder(id));
+      }
       return Ok(model.toDomain());
     } on ServerException catch (e) {
       return Err(ServerFailure(e.message));

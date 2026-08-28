@@ -13,28 +13,45 @@ class OfflineBanner extends ConsumerWidget {
       stream: connectivity.onConnectivityChanged,
       builder: (context, snapshot) {
         final isOnline = snapshot.data ?? true;
-        if (isOnline) return const SizedBox.shrink();
+        final isDark = Theme.of(context).brightness == Brightness.dark;
 
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          color: Theme.of(context).colorScheme.errorContainer,
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.wifi_off,
-                size: 14,
-                color: Theme.of(context).colorScheme.onErrorContainer,
+        return AnimatedCrossFade(
+          duration: const Duration(milliseconds: 300),
+          crossFadeState: isOnline ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          firstChild: const SizedBox.shrink(),
+          secondChild: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEE2E2),
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? const Color(0xFF991B1B) : const Color(0xFFFECACA),
+                ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                'You\'re offline — changes will sync when you reconnect',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.wifi_off_rounded,
+                  size: 16,
+                  color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'You\'re offline — changes will sync automatically',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFFFEE2E2) : const Color(0xFF991B1B),
                     ),
-              ),
-            ],
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

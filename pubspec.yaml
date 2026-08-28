@@ -56,6 +56,16 @@ dependencies:
   flutter_image_compress: ^2.3.0
 
   flutter_local_notifications: ^17.2.1
+  timezone: ^0.9.4
+
+  # Map (requirement #6)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  open_filex: ^4.4.1
+
+  # Background sync (requirement #10 / item 6)
+  flutter_timezone: ^5.1.0
 
 dev_dependencies:
   flutter_test:

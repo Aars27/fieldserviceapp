@@ -32,6 +32,7 @@ class JobRemoteDatasource {
               'priority': filter.priorities.map((p) => p.apiValue).join(','),
             if (filter.from != null) 'from': filter.from!.toIso8601String(),
             if (filter.to != null) 'to': filter.to!.toIso8601String(),
+            if (filter.overdueOnly) 'overdue': 'true',
           },
           cancelToken: cancelToken,
         );
@@ -127,83 +128,72 @@ class JobRemoteDatasource {
   }
 
   List<JobModel> _getMockJobs(int page, int limit, JobsFilter filter) {
-    if (page > 2) return [];
-
     final now = DateTime.now();
-    final allMockJobs = [
-      JobModel(
-        id: 'job_001',
-        title: 'HVAC Compressor Inspection',
-        description:
-            'Check high-pressure valve and replace compressor filter on rooftop unit 3.',
-        status: HiveJobStatus.inProgress,
-        priority: HiveJobPriority.urgent,
-        assignedTo: 'John Doe',
-        scheduledAt: now.subtract(const Duration(hours: 2)),
-        updatedAt: now,
-        latitude: 37.7749,
-        longitude: -122.4194,
-        timeline: [
-          StatusEventModel(
-            id: 'evt_1',
-            status: HiveJobStatus.pending,
-            note: 'Job assigned',
-            createdAt: now.subtract(const Duration(days: 1)),
-          ),
-          StatusEventModel(
-            id: 'evt_2',
-            status: HiveJobStatus.inProgress,
-            note: 'Started diagnostics on site',
-            createdAt: now.subtract(const Duration(hours: 1)),
-          ),
-        ],
-      ),
-      JobModel(
-        id: 'job_002',
-        title: 'Main Circuit Breaker Replacement',
-        description: 'Replace 200A main service breaker in electrical room B.',
-        status: HiveJobStatus.pending,
-        priority: HiveJobPriority.high,
-        assignedTo: 'John Doe',
-        scheduledAt: now.add(const Duration(hours: 4)),
-        updatedAt: now,
-        latitude: 37.7833,
-        longitude: -122.4167,
-      ),
-      JobModel(
-        id: 'job_003',
-        title: 'Water Filtration Unit Servicing',
-        description: 'Quarterly sediment filter replacement and chlorine test.',
-        status: HiveJobStatus.completed,
-        priority: HiveJobPriority.normal,
-        assignedTo: 'John Doe',
-        scheduledAt: now.subtract(const Duration(days: 2)),
-        updatedAt: now.subtract(const Duration(days: 2)),
-      ),
-      JobModel(
-        id: 'job_004',
-        title: 'Emergency Generator Load Test',
-        description:
-            'Perform 30-minute full load bank test and log fuel consumption.',
-        status: HiveJobStatus.pending,
-        priority: HiveJobPriority.urgent,
-        assignedTo: 'John Doe',
-        scheduledAt: now.add(const Duration(days: 1)),
-        updatedAt: now,
-      ),
-      JobModel(
-        id: 'job_005',
-        title: 'Fire Alarm Sensor Calibration',
-        description: 'Calibrate optical smoke detectors on floors 2 through 5.',
-        status: HiveJobStatus.inProgress,
-        priority: HiveJobPriority.normal,
-        assignedTo: 'John Doe',
-        scheduledAt: now.subtract(const Duration(hours: 5)),
-        updatedAt: now,
-      ),
-    ];
 
+    // ── 50-job mock dataset ──────────────────────────────────────────────────
+    // Enough to exercise 3+ pages at the default page size of 15.
+    final allMockJobs = List.generate(50, (i) {
+      final idx = i + 1;
+      final statuses = [
+        HiveJobStatus.pending,
+        HiveJobStatus.inProgress,
+        HiveJobStatus.completed,
+        HiveJobStatus.cancelled,
+      ];
+      final priorities = [
+        HiveJobPriority.low,
+        HiveJobPriority.normal,
+        HiveJobPriority.high,
+        HiveJobPriority.urgent,
+      ];
+      final titles = [
+        'HVAC Compressor Inspection',
+        'Electrical Panel Replacement',
+        'Plumbing Leak Repair',
+        'Fire Alarm Calibration',
+        'Generator Load Test',
+        'Water Filter Servicing',
+        'Elevator Safety Inspection',
+        'Boiler Maintenance',
+        'Security System Upgrade',
+        'Solar Panel Cleaning',
+      ];
+      final status = statuses[i % statuses.length];
+      final priority = priorities[(i ~/ 4) % priorities.length];
+      final title = '${titles[i % titles.length]} #$idx';
+      // Alternate past/future scheduled times to get realistic overdue spread
+      final scheduledAt = i.isEven
+          ? now.subtract(Duration(hours: i + 1))
+          : now.add(Duration(hours: i + 1));
+
+      final locations = const [
+        [37.7749, -122.4194], // SF Center
+        [37.7816, -122.4056], // SF SOMA
+        [37.7952, -122.4028], // SF FiDi
+        [37.7694, -122.4862], // SF Golden Gate Park
+        [37.7516, -122.4177], // SF Mission
+        [37.7338, -122.4463], // SF Sunnyside
+      ];
+      final loc = locations[i % locations.length];
+      final hasLocation = i % 10 != 0;
+
+      return JobModel(
+        id: 'job_${idx.toString().padLeft(3, '0')}',
+        title: title,
+        description: 'Standard maintenance task for job $idx. Inspect, service, and document.',
+        status: status,
+        priority: priority,
+        assignedTo: i.isEven ? 'John Doe' : 'Jane Smith',
+        scheduledAt: scheduledAt,
+        updatedAt: now,
+        latitude: hasLocation ? loc[0] : null,
+        longitude: hasLocation ? loc[1] : null,
+      );
+    });
+
+    // ── Apply filters (AND logic) ────────────────────────────────────────────
     var filtered = allMockJobs;
+
     if (filter.search != null && filter.search!.isNotEmpty) {
       final q = filter.search!.toLowerCase();
       filtered = filtered
@@ -224,8 +214,20 @@ class JobRemoteDatasource {
           .where((j) => filter.priorities.contains(j.priority.toDomain()))
           .toList();
     }
+    if (filter.overdueOnly) {
+      filtered = filtered.where((j) => j.toDomain().isOverdue).toList();
+    }
+    if (filter.from != null) {
+      filtered = filtered.where((j) => !j.scheduledAt.isBefore(filter.from!)).toList();
+    }
+    if (filter.to != null) {
+      filtered = filtered.where((j) => !j.scheduledAt.isAfter(filter.to!)).toList();
+    }
 
-    return filtered;
+    // ── Paginate with skip/take ──────────────────────────────────────────────
+    final offset = (page - 1) * limit;
+    if (offset >= filtered.length) return [];
+    return filtered.skip(offset).take(limit).toList();
   }
 
   JobModel _createMockJob(String id, {HiveJobStatus? status}) {
@@ -239,6 +241,8 @@ class JobRemoteDatasource {
       assignedTo: 'Technician',
       scheduledAt: now,
       updatedAt: now,
+      latitude: 37.7749,
+      longitude: -122.4194,
     );
   }
 }

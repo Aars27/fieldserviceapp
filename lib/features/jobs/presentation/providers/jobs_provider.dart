@@ -9,13 +9,10 @@ import '../../data/datasources/job_local_datasource.dart';
 import '../../data/datasources/job_remote_datasource.dart';
 import '../../data/repositories/job_repository_impl.dart';
 import '../../domain/entities/job.dart';
-import '../../domain/entities/job_priority.dart';
-import '../../domain/entities/job_status.dart';
 import '../../domain/repositories/job_repository.dart';
 import '../../domain/usecases/get_jobs_usecase.dart';
 import '../../domain/usecases/update_job_status_usecase.dart';
 
-// --------------- infrastructure ---------------
 
 final jobLocalDatasourceProvider = Provider<JobLocalDatasource>((ref) {
   return JobLocalDatasource();
@@ -40,7 +37,6 @@ final updateJobStatusUseCaseProvider = Provider<UpdateJobStatusUseCase>((ref) {
   return UpdateJobStatusUseCase(ref.read(jobRepositoryProvider));
 });
 
-// --------------- jobs list state ---------------
 
 class JobsState {
   final List<Job> jobs;
@@ -105,26 +101,27 @@ class JobsNotifier extends Notifier<JobsState> {
   }
 
   void search(String query) {
-    final updated = state.filter.copyWith(search: query.isEmpty ? null : query);
+    final trimmed = query.trim();
+    final updated = trimmed.isEmpty
+        ? state.filter.copyWith(clearSearch: true)
+        : state.filter.copyWith(search: trimmed);
     state = state.copyWith(filter: updated, clearError: true);
     _activeCancelToken?.cancel('new search');
     _activeCancelToken = CancelToken();
     _debouncer.run(() => _fetch(page: 1, replace: true, cancelToken: _activeCancelToken));
   }
 
-  void applyFilter({
-    Set<JobStatus>? statuses,
-    Set<JobPriority>? priorities,
-    DateTime? from,
-    DateTime? to,
-  }) {
+  void applyFilter(JobsFilter filter) {
     state = state.copyWith(
-      filter: state.filter.copyWith(
-        statuses: statuses,
-        priorities: priorities,
-        from: from,
-        to: to,
-      ),
+      filter: filter,
+      clearError: true,
+    );
+    _fetch(page: 1, replace: true);
+  }
+
+  void setFilter(JobsFilter filter) {
+    state = state.copyWith(
+      filter: filter,
       clearError: true,
     );
     _fetch(page: 1, replace: true);

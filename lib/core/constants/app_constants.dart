@@ -12,6 +12,9 @@ class AppConstants {
   static const int jobsPageSize = 15;
   static const Duration searchDebounce = Duration(milliseconds: 300);
 
+  /// How far before a job's scheduled time to fire a deadline reminder.
+  static const Duration deadlineReminderLeadTime = Duration(hours: 1);
+
   static const String authTokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';
   static const String themeModeKey = 'theme_mode';

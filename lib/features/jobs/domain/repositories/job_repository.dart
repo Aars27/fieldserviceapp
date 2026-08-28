@@ -12,6 +12,7 @@ class JobsFilter {
   final Set<JobPriority> priorities;
   final DateTime? from;
   final DateTime? to;
+  final bool overdueOnly;
 
   const JobsFilter({
     this.search,
@@ -19,21 +20,27 @@ class JobsFilter {
     this.priorities = const {},
     this.from,
     this.to,
+    this.overdueOnly = false,
   });
 
   JobsFilter copyWith({
     String? search,
+    bool clearSearch = false,
     Set<JobStatus>? statuses,
     Set<JobPriority>? priorities,
     DateTime? from,
+    bool clearFrom = false,
     DateTime? to,
+    bool clearTo = false,
+    bool? overdueOnly,
   }) {
     return JobsFilter(
-      search: search ?? this.search,
+      search: clearSearch ? null : (search ?? this.search),
       statuses: statuses ?? this.statuses,
       priorities: priorities ?? this.priorities,
-      from: from ?? this.from,
-      to: to ?? this.to,
+      from: clearFrom ? null : (from ?? this.from),
+      to: clearTo ? null : (to ?? this.to),
+      overdueOnly: overdueOnly ?? this.overdueOnly,
     );
   }
 }
