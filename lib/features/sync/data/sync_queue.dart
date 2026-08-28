@@ -51,11 +51,26 @@ class SyncQueue {
     }
   }
 
-  bool get isEmpty => _box.isEmpty;
+  bool get _isBoxOpen => Hive.isBoxOpen(AppConstants.pendingSyncBoxName);
+  bool get _isDeadBoxOpen => Hive.isBoxOpen(_deadLetterBoxName);
 
-  int get pendingCount => _box.length;
+  Box<PendingSyncOperation>? get _maybeBox =>
+      _isBoxOpen ? Hive.box<PendingSyncOperation>(AppConstants.pendingSyncBoxName) : null;
 
-  int get deadCount => _deadBox.length;
+  Box<PendingSyncOperation>? get _maybeDeadBox =>
+      _isDeadBoxOpen ? Hive.box<PendingSyncOperation>(_deadLetterBoxName) : null;
+
+  bool get isEmpty => _maybeBox?.isEmpty ?? true;
+
+  int get pendingCount => _maybeBox?.length ?? 0;
+
+  int get deadCount => _maybeDeadBox?.length ?? 0;
+
+  List<PendingSyncOperation> get allPending => _maybeBox?.values.toList() ?? [];
+
+  List<PendingSyncOperation> get allDead => _maybeDeadBox?.values.toList() ?? [];
+
+  Stream<BoxEvent> watch() => _maybeBox?.watch() ?? const Stream.empty();
 
   static String get deadLetterBoxName => _deadLetterBoxName;
 }

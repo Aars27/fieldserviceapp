@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:hive/hive.dart';
 import 'package:fieldserviceapp/core/errors/result.dart';
 import 'package:fieldserviceapp/core/router/app_router.dart';
 import 'package:fieldserviceapp/core/theme/theme_provider.dart';
@@ -10,10 +11,42 @@ import 'package:fieldserviceapp/features/jobs/domain/entities/job_priority.dart'
 import 'package:fieldserviceapp/features/jobs/domain/entities/job_status.dart';
 import 'package:fieldserviceapp/features/jobs/domain/repositories/job_repository.dart';
 import 'package:fieldserviceapp/features/notifications/presentation/providers/unseen_jobs_provider.dart';
+import 'package:fieldserviceapp/features/sync/data/sync_queue.dart';
+import 'package:fieldserviceapp/features/sync/domain/entities/pending_sync_operation.dart';
+import 'package:fieldserviceapp/features/sync/presentation/providers/sync_provider.dart';
 import 'package:fieldserviceapp/main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _FakeSyncQueue extends SyncQueue {
+  final List<PendingSyncOperation> _items = [];
+
+  _FakeSyncQueue([List<PendingSyncOperation>? initial]) {
+    if (initial != null) _items.addAll(initial);
+  }
+
+  @override
+  List<PendingSyncOperation> get allPending => List.unmodifiable(_items);
+
+  @override
+  List<PendingSyncOperation> get allDead => const [];
+
+  @override
+  int get pendingCount => _items.length;
+
+  @override
+  int get deadCount => 0;
+
+  @override
+  bool get isEmpty => _items.isEmpty;
+
+  @override
+  Stream<BoxEvent> watch() => const Stream.empty();
+
+  @override
+  Future<void> enqueue(PendingSyncOperation op) async => _items.add(op);
+}
 
 class _FakeJobRepository implements JobRepository {
   final List<Job> mockJobs;
@@ -209,5 +242,55 @@ void main() {
     expect(sorted.first.id, 'new_3');
     expect(sorted[1].id, '1');
     expect(sorted[2].id, '2');
+  });
+
+  test('Sync status: isAttachmentPendingSyncProvider and isJobPendingSyncProvider detect queued operations', () {
+    final fakeQueue = _FakeSyncQueue([
+      PendingSyncOperation(
+        id: 'op_att_1',
+        type: SyncOperationType.addAttachment,
+        jobId: 'job_101',
+        payload: '{"attachment_id":"att_123","filename":"photo.jpg"}',
+        createdAt: DateTime.now(),
+      ),
+      PendingSyncOperation(
+        id: 'op_status_1',
+        type: SyncOperationType.updateStatus,
+        jobId: 'job_102',
+        payload: '{"status":"in_progress"}',
+        createdAt: DateTime.now(),
+      ),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        syncQueueProvider.overrideWithValue(fakeQueue),
+      ],
+    );
+
+    // Check attachment on job_101
+    final isAttPending = container.read(
+      isAttachmentPendingSyncProvider((
+        jobId: 'job_101',
+        attachmentId: 'att_123',
+        filename: 'photo.jpg',
+      )),
+    );
+    expect(isAttPending, isTrue);
+
+    // Check non-queued attachment on job_101
+    final isOtherAttPending = container.read(
+      isAttachmentPendingSyncProvider((
+        jobId: 'job_101',
+        attachmentId: 'att_other',
+        filename: 'other.jpg',
+      )),
+    );
+    expect(isOtherAttPending, isFalse);
+
+    // Check job-level sync indicator
+    expect(container.read(isJobPendingSyncProvider('job_101')), isTrue);
+    expect(container.read(isJobPendingSyncProvider('job_102')), isTrue);
+    expect(container.read(isJobPendingSyncProvider('job_999')), isFalse);
   });
 }

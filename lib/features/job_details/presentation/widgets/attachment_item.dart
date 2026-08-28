@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../../jobs/domain/entities/attachment.dart';
+import '../../../sync/presentation/providers/sync_provider.dart';
 import '../providers/job_detail_provider.dart';
 
 class AttachmentItem extends ConsumerWidget {
@@ -25,6 +26,13 @@ class AttachmentItem extends ConsumerWidget {
         (isDark ? const Color(0xFF1E293B) : Colors.white);
     final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
     final kb = (attachment.sizeBytes / 1024).toStringAsFixed(1);
+    final isPending = ref.watch(
+      isAttachmentPendingSyncProvider((
+        jobId: jobId,
+        attachmentId: attachment.id,
+        filename: attachment.filename,
+      )),
+    );
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -50,9 +58,87 @@ class AttachmentItem extends ConsumerWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
-          subtitle: Text(
-            '$kb KB · ${attachment.mimeType.split('/').last.toUpperCase()}',
-            style: TextStyle(color: cs.outline, fontSize: 12),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                Text(
+                  '$kb KB · ${attachment.mimeType.split('/').last.toUpperCase()}',
+                  style: TextStyle(color: cs.outline, fontSize: 12),
+                ),
+                const SizedBox(width: 8),
+                if (isPending)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B)
+                          .withValues(alpha: isDark ? 0.2 : 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.cloud_upload_outlined,
+                          size: 11,
+                          color: isDark
+                              ? const Color(0xFFFBBF24)
+                              : const Color(0xFFD97706),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Pending sync',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? const Color(0xFFFBBF24)
+                                : const Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981)
+                          .withValues(alpha: isDark ? 0.2 : 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.cloud_done_outlined,
+                          size: 11,
+                          color: isDark
+                              ? const Color(0xFF34D399)
+                              : const Color(0xFF059669),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Synced',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? const Color(0xFF34D399)
+                                : const Color(0xFF059669),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
           trailing: Icon(Icons.open_in_new_rounded, size: 18, color: cs.outline),
           onTap: () async {

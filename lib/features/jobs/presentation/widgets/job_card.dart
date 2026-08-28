@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/job_visuals.dart';
+import '../../../sync/presentation/providers/sync_provider.dart';
 import '../../domain/entities/job.dart';
 
-class JobCard extends StatelessWidget {
+class JobCard extends ConsumerWidget {
   final Job job;
   final bool isNew;
   final VoidCallback onTap;
@@ -17,12 +19,13 @@ class JobCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = Theme.of(context).cardTheme.color ??
         (isDark ? const Color(0xFF1E293B) : Colors.white);
     final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final isPendingSync = ref.watch(isJobPendingSyncProvider(job.id));
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -101,6 +104,47 @@ class JobCard extends StatelessWidget {
                 Row(
                   children: [
                     JobStatusBadge(status: job.status, fontSize: 10),
+                    if (isPendingSync) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF78350F).withValues(alpha: 0.6)
+                              : const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+                                : const Color(0xFFFBBF24),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.cloud_upload_outlined,
+                              size: 10,
+                              color: isDark
+                                  ? const Color(0xFFFCD34D)
+                                  : const Color(0xFFB45309),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'PENDING SYNC',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? const Color(0xFFFCD34D)
+                                    : const Color(0xFFB45309),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     Icon(
                       Icons.schedule_rounded,
